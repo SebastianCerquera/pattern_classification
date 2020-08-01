@@ -1,0 +1,892 @@
+---
+jupyter:
+  jupytext:
+    formats: ipynb,Rmd
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.5.0
+  kernelspec:
+    display_name: Python 3
+    language: python
+    name: python3
+---
+
+```{python}
+# %load_ext watermark
+# %watermark -a 'Sebastian Raschka' -u -d -v -p numpy,mlxtend,matplotlib,scikit-learn
+```
+
+---
+
+This Jupyter notebook contains the code to create the data visualizations for the article "Model evaluation, model selection, and algorithm selection in machine learning - Part II" at http://sebastianraschka.com/blog/2016/model-evaluation-selection-part2.html.
+
+---
+
+```{python}
+# %matplotlib inline
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+```{python}
+import sklearn
+```
+
+# Resampling and Distributions
+
+```{python}
+import seaborn.apionly as sns
+from sklearn.model_selection import train_test_split
+
+rng = np.random.RandomState(12345)
+
+gauss = rng.multivariate_normal(mean=np.array([0., 0.]), 
+                                cov=np.array([[2., 1.], 
+                                              [1., 2.]]), 
+                                size=100)
+
+with plt.style.context(('fivethirtyeight')):
+    fig = plt.figure(figsize=(3, 3))
+    ax = fig.add_subplot(111)
+    sns.kdeplot(gauss[:, 0], gauss[:, 1])
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    plt.title("original sample")
+    #plt.savefig('figures/gauss_small_orig.svg')
+    plt.show()
+    
+
+seeds = np.arange(10**5)
+rng.shuffle(seeds)
+seeds = seeds[:50]
+
+pred_2 = []
+
+with plt.style.context(('fivethirtyeight')):
+    for i in range(5):
+        X_train, X_test = train_test_split(gauss,
+                                           test_size=0.3, 
+                                           random_state=i)
+    
+        fig = plt.figure(figsize=(3, 3))
+        ax = fig.add_subplot(111)
+        sns.kdeplot(X_train[:, 0], X_train[:, 1], cmap='summer')
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        plt.title("split: train %d" % i)
+
+        #plt.savefig('figures/gauss_%d_small_train.svg' % i)
+        plt.show()
+        
+        fig = plt.figure(figsize=(3, 3))
+        ax = fig.add_subplot(111)
+        sns.kdeplot(X_test[:, 0], X_test[:, 1], cmap='copper')
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        plt.title("split: test %d" % i)
+        #plt.savefig('figures/gauss_%d_small_test.svg' % i)
+        plt.show()
+```
+
+```{python}
+import seaborn.apionly as sns
+from sklearn.model_selection import train_test_split
+
+rng = np.random.RandomState(12345)
+
+gauss = rng.multivariate_normal(mean=np.array([0., 0.]), 
+                                cov=np.array([[2., 1.], 
+                                              [1., 2.]]), 
+                                size=1000)
+
+with plt.style.context(('fivethirtyeight')):
+    fig = plt.figure(figsize=(3, 3))
+    ax = fig.add_subplot(111)
+    sns.kdeplot(gauss[:, 0], gauss[:, 1])
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    plt.title("original sample")
+    #plt.savefig('figures/gauss_large_orig.svg')
+    plt.show()
+    
+
+seeds = np.arange(10**5)
+rng.shuffle(seeds)
+seeds = seeds[:50]
+
+pred_2 = []
+
+with plt.style.context(('fivethirtyeight')):
+    for i in range(5):
+        X_train, X_test = train_test_split(gauss,
+                                           test_size=0.3, 
+                                           random_state=i)
+    
+        fig = plt.figure(figsize=(3, 3))
+        ax = fig.add_subplot(111)
+        sns.kdeplot(X_train[:, 0], X_train[:, 1], cmap='summer')
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        plt.title("split: train %d" % i)
+        #plt.savefig('figures/gauss_%d_large_train.svg' % i)
+        plt.show()
+        
+        fig = plt.figure(figsize=(3, 3))
+        ax = fig.add_subplot(111)
+        sns.kdeplot(X_test[:, 0], X_test[:, 1], cmap='copper')
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        plt.title("split: test %d" % i)
+
+        #plt.savefig('figures/gauss_%d_large_test.svg' % i)
+        plt.show()
+```
+
+```{python}
+rng = np.random.RandomState(12345)
+
+gauss = rng.multivariate_normal(mean=np.array([0., 0.]), 
+                                cov=np.array([[2., 1.], 
+                                              [1., 2.]]), 
+                                size=500000)
+
+with plt.style.context(('fivethirtyeight')):
+    fig = plt.figure(figsize=(3, 3))
+    ax = fig.add_subplot(111)
+    sns.kdeplot(gauss[:, 0], gauss[:, 1])
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    #plt.savefig('figures/gauss_pop.svg')
+    plt.show()
+```
+
+# Holdout method and repeated sampling
+
+```{python}
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+
+iris = load_iris()
+X, y = iris.data[:, :], iris.target
+
+X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                    test_size=0.3, 
+                                                    random_state=1,
+                                                    stratify=y)
+
+clf_1 = KNeighborsClassifier(n_neighbors=3,
+                             weights='uniform', 
+                             algorithm='kd_tree', 
+                             leaf_size=30, 
+                             p=2, 
+                             metric='minkowski', 
+                             metric_params=None, 
+                             n_jobs=1)
+```
+
+```{python}
+rng = np.random.RandomState(seed=12345)
+seeds = np.arange(10**5)
+rng.shuffle(seeds)
+seeds = seeds[:50]
+
+pred_2 = []
+
+for i in seeds:
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        test_size=0.5, 
+                                                        random_state=i,
+                                                        stratify=y)
+    y_pred_i = clf_1.fit(X_train, y_train).predict(X_test)
+    y_pred_i_acc = np.mean(y_test == y_pred_i)
+    pred_2.append(y_pred_i_acc)
+
+pred_2 = np.asarray(pred_2)
+print(pred_2.mean())
+
+with plt.style.context(('fivethirtyeight')):
+    plt.bar(range(0, pred_2.shape[0]), pred_2, color='gray', alpha=0.7)
+    plt.axhline(pred_2.max(), color='k', linewidth=1, linestyle='--')
+    plt.axhline(pred_2.min(), color='k', linewidth=1, linestyle='--')
+    plt.axhspan(pred_2.min(), pred_2.max(), alpha=0.2, color='steelblue')
+    plt.ylim([0, pred_2.max() + 0.1])
+    plt.xlabel('Repetition')
+    plt.ylabel('Accuracy')
+    plt.ylim([0.5, 1.0])
+    plt.tight_layout()
+    #plt.savefig('figures/model-eval-iris_0.svg')
+    plt.show()
+```
+
+```{python}
+with plt.style.context(('fivethirtyeight')):
+    bp = plt.boxplot(pred_2,
+                notch=True,
+                sym='bs',
+                showmeans=True,
+                patch_artist=True,     
+                vert=True)
+    plt.setp(bp['boxes'], color='black')
+    plt.setp(bp['whiskers'], color='black', linestyle='-', linewidth=2)
+    plt.setp(bp['fliers'], color='black', marker='+')
+    plt.setp(bp['medians'], color='black', linewidth=2)
+    plt.setp(bp['means'], c='gray', markersize=10)
+    plt.setp(bp['caps'], linewidth=2)
+    plt.setp(bp['boxes'], facecolor='steelblue', linewidth=2)
+    plt.ylim([pred_2.min()-0.001, 1.01])
+    plt.xticks([])
+    plt.tight_layout()
+    #plt.savefig('figures/model-eval-iris_1.svg')
+    plt.show()
+```
+
+```{python}
+rng = np.random.RandomState(seed=12345)
+seeds = np.arange(10**5)
+rng.shuffle(seeds)
+seeds = seeds[:50]
+
+pred_2 = []
+
+for i in seeds:
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        test_size=0.1, 
+                                                        random_state=i,
+                                                        stratify=y)
+    y_pred_i = clf_1.fit(X_train, y_train).predict(X_test)
+    y_pred_i_acc = np.mean(y_test == y_pred_i)
+    pred_2.append(y_pred_i_acc)
+    
+pred_2 = np.asarray(pred_2)
+print(pred_2.mean())
+
+with plt.style.context(('fivethirtyeight')):
+    plt.bar(range(0, pred_2.shape[0]), pred_2, color='gray', alpha=0.7)
+    plt.axhline(pred_2.max(), color='k', linewidth=1, linestyle='--')
+    plt.axhline(pred_2.min(), color='k', linewidth=1, linestyle='--')
+    plt.axhspan(pred_2.min(), pred_2.max(), alpha=0.2, color='steelblue')
+    plt.ylim([0, pred_2.max() + 0.1])
+    plt.xlabel('Repetition')
+    plt.ylabel('Accuracy')
+    plt.ylim(0.5, 1.0)
+    plt.tight_layout()
+    #plt.savefig('figures/model-eval-iris_0_2.svg')
+    plt.show()
+```
+
+## Pessimistic Bias in Holdout
+
+```{python}
+from mlxtend.data import mnist_data
+
+X2, y2 = mnist_data()
+X_train2, X_test2, y_train2, y_test2 = train_test_split(X2, y2,
+                                                    test_size=0.3, 
+                                                    random_state=12,
+                                                    stratify=y2)
+y_train2
+```
+
+```{python}
+from sklearn.linear_model import LogisticRegression
+
+clf_2 = LogisticRegression(penalty='l2', 
+                           dual=False, 
+                           tol=0.0001, 
+                           C=0.000001, 
+                           fit_intercept=True, 
+                           intercept_scaling=1, 
+                           class_weight=None, 
+                           random_state=12, 
+                           solver='lbfgs', 
+                           max_iter=100, 
+                           multi_class='multinomial', 
+                           verbose=0, 
+                           warm_start=False, 
+                           n_jobs=1)
+
+pred_train, pred_test = [], []
+
+intervals = np.arange(500, X_train2.shape[0] + 1, 200)
+
+for i in intervals:
+    clf_2.fit(X_train2[:i], y_train2[:i])
+    p_train = clf_2.score(X_train2[:i], y_train2[:i])
+    p_test = clf_2.score(X_test2, y_test2)
+    pred_train.append(p_train)
+    pred_test.append(p_test)
+```
+
+```{python}
+with plt.style.context(('fivethirtyeight')):
+    plt.plot(intervals, pred_train, marker='o', label='Train')
+    plt.plot(intervals, pred_test, marker='s', label='Test')
+    plt.legend(loc='best', numpoints=1)
+    plt.xlim([430, X_train2.shape[0] + X_test2.shape[0]])
+    plt.axvspan(X_train2.shape[0], 
+                X_train2.shape[0] + X_test2.shape[0], 
+                alpha=0.2, 
+                color='steelblue')
+    plt.ylim([0.85, 1.0])
+    plt.xlabel('Training Set Size')
+    plt.ylabel('Accuracy')
+    plt.tight_layout()
+    plt.savefig('figures/model-eval-mnist_0.svg')
+```
+
+##  Bootstrap
+
+```{python}
+from sklearn.datasets import load_iris
+from sklearn.neighbors import KNeighborsClassifier
+
+rng = np.random.RandomState(seed=12345)
+
+iris = load_iris()
+X, y = iris.data, iris.target
+
+clf = KNeighborsClassifier(n_neighbors=3,
+                             weights='uniform', 
+                             algorithm='kd_tree', 
+                             leaf_size=30, 
+                             p=2, 
+                             metric='minkowski', 
+                             metric_params=None, 
+                             n_jobs=1)
+
+
+idx = np.arange(y.shape[0])
+
+accuracies = []
+
+for i in range(200):
+    
+    train_idx = rng.choice(idx, size=idx.shape[0], replace=True)
+    test_idx = np.setdiff1d(idx, train_idx, assume_unique=False)
+    
+    boot_train_X, boot_train_y = X[train_idx], y[train_idx]
+    boot_test_X, boot_test_y = X[test_idx], y[test_idx]
+    
+    clf.fit(boot_train_X, boot_train_y)
+    acc = clf.score(boot_test_X, boot_test_y)
+    accuracies.append(acc)
+```
+
+```{python}
+import seaborn as sns
+
+sns.set_style("ticks")
+
+mean = np.mean(accuracies)
+
+#se = np.sqrt( (1. / (100-1)) * np.sum([(acc - mean)**2 for acc in accuracies])) 
+#ci = 1.984 * se
+
+se = np.sqrt( (1. / (200-1)) * np.sum([(acc - mean)**2 for acc in accuracies])) 
+ci = 1.97 * se
+
+lower = np.percentile(accuracies, 2.5)
+upper = np.percentile(accuracies, 97.5)
+
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.vlines(mean, [0], 80, lw=2.5, linestyle='-', label='mean')
+#ax.vlines(med, [0], 60, lw=2.5, linestyle='--', label='median')
+ax.vlines(lower, [0], 15, lw=2.5, linestyle='-.', label='CI95 percentile')
+ax.vlines(upper, [0], 15, lw=2.5, linestyle='-.')
+
+ax.vlines(mean + ci, [0], 15, lw=2.5, linestyle=':', label='CI95 standard')
+ax.vlines(mean - ci, [0], 15, lw=2.5, linestyle=':')
+
+
+ax.hist(accuracies, bins=7,
+        color='#0080ff', edgecolor="none", 
+        alpha=0.3)
+plt.legend(loc='upper left')
+sns.despine(offset=10, trim=True)
+plt.xlim([0.86, 1.03])
+plt.tight_layout()
+plt.savefig('figures/bootstrap-histo-1.svg')
+
+plt.show()
+```
+
+```{python}
+from mlxtend.data import mnist_data
+from sklearn.linear_model import LogisticRegression
+
+rng = np.random.RandomState(seed=12345)
+
+X, y = mnist_data()
+
+clf = LogisticRegression(penalty='l2', 
+                           dual=False, 
+                           tol=0.0001, 
+                           C=0.000001, 
+                           fit_intercept=True, 
+                           intercept_scaling=1, 
+                           class_weight=None, 
+                           random_state=12, 
+                           solver='lbfgs', 
+                           max_iter=100, 
+                           multi_class='multinomial', 
+                           verbose=0, 
+                           warm_start=False, 
+                           n_jobs=1)
+
+
+idx = np.arange(y.shape[0])
+
+accuracies = []
+
+for i in range(200):
+    
+    train_idx = rng.choice(idx, size=idx.shape[0], replace=True)
+    test_idx = np.setdiff1d(idx, train_idx, assume_unique=False)
+    
+    boot_train_X, boot_train_y = X[train_idx], y[train_idx]
+    boot_test_X, boot_test_y = X[test_idx], y[test_idx]
+    
+    clf.fit(boot_train_X, boot_train_y)
+    acc = clf.score(boot_test_X, boot_test_y)
+    accuracies.append(acc)
+```
+
+```{python}
+import seaborn as sns
+
+sns.set_style("ticks")
+
+mean = np.mean(accuracies)
+
+#se = np.sqrt( (1. / (100-1)) * np.sum([(acc - mean)**2 for acc in accuracies])) 
+#ci = 1.984 * se
+
+se = np.sqrt( (1. / (200-1)) * np.sum([(acc - mean)**2 for acc in accuracies])) 
+ci = 1.97 * se
+
+lower = np.percentile(accuracies, 2.5)
+upper = np.percentile(accuracies, 97.5)
+
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.vlines(mean, [0], 40, lw=2.5, linestyle='-', label='mean')
+#ax.vlines(med, [0], 60, lw=2.5, linestyle='--', label='median')
+ax.vlines(lower, [0], 15, lw=2.5, linestyle='-.', label='CI95 percentile')
+ax.vlines(upper, [0], 15, lw=2.5, linestyle='-.')
+
+ax.vlines(mean + ci, [0], 15, lw=2.5, linestyle=':', label='CI95 standard')
+ax.vlines(mean - ci, [0], 15, lw=2.5, linestyle=':')
+
+
+ax.hist(accuracies, bins=11,
+        color='#0080ff', edgecolor="none", 
+        alpha=0.3)
+plt.legend(loc='upper left')
+
+plt.xlim([0.885, 0.915])
+sns.despine(offset=10, trim=True)
+plt.tight_layout()
+
+plt.savefig('figures/bootstrap-histo-2.svg')
+
+plt.show()
+```
+
+## K-fold and standard deviation (1-standard error method)
+
+```{python}
+from sklearn.datasets import make_circles
+
+
+with plt.style.context(('seaborn-whitegrid')):
+    X, y = make_circles(n_samples=300, random_state=1, noise=0.275, factor=0.2)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        test_size=0.3, 
+                                                        random_state=12345,
+                                                        stratify=y)
+
+    plt.scatter(X_train[y_train==0, 0], X_train[y_train==0, 1], 
+                marker='s', color='red', edgecolor='k', alpha=0.6, s=25)
+    plt.scatter(X_train[y_train==1, 0], X_train[y_train==1, 1], 
+                marker='^', color='blue', edgecolor='k', alpha=0.6, s=25)
+    plt.xlabel('X1', fontsize=14.5)
+    plt.ylabel('X2', fontsize=14.5)
+    plt.tight_layout()
+    plt.savefig('figures/model-eval-circles_1.svg')
+    plt.show()
+```
+
+```{python}
+from sklearn.svm import SVC
+from sklearn.cross_validation import StratifiedKFold
+
+params = [0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0]
+cv_acc, cv_std, cv_stderr = [], [], []
+
+
+cv = StratifiedKFold(y=y_train, n_folds=10, shuffle=True, random_state=1)
+
+for c in params:
+
+    clf = SVC(C=10.0, 
+              kernel='rbf', 
+              degree=1, 
+              gamma=c, 
+              coef0=0.0, 
+              shrinking=True, 
+              probability=False, 
+              tol=0.001, 
+              cache_size=200, 
+              class_weight=None, 
+              verbose=False, 
+              max_iter=-1, 
+              decision_function_shape=None, 
+              random_state=0)
+
+    
+    all_acc = []
+    for train_index, valid_index in cv:
+        pred = clf.fit(X_train[train_index], y_train[train_index])\
+               .predict(X_train[valid_index])
+        acc = np.mean(y_train[valid_index] == pred)
+        all_acc.append(acc)
+
+    all_acc = np.array(all_acc)
+    y_pred_cv10_mean = all_acc.mean()
+    y_pred_cv10_std = all_acc.std()
+    y_pred_cv10_stderr = y_pred_cv10_std / np.sqrt(10)
+
+    cv_acc.append(y_pred_cv10_mean) 
+    cv_std.append(y_pred_cv10_std)
+    cv_stderr.append(y_pred_cv10_stderr)
+    
+
+with plt.style.context(('seaborn-whitegrid')):
+    
+    ax = plt.subplot(111)
+    ax.set_xscale('log')
+    ax.errorbar(params, cv_acc, yerr=cv_std, marker='o', alpha=0.8, ecolor='black', elinewidth=2)
+
+    plt.ylim([0.0, 1.0])
+    plt.xlim([0.0001, 100000.0])
+    plt.xlabel('$\gamma$', fontsize=25)
+    plt.ylabel('Accuracy')
+    plt.tight_layout()
+    plt.savefig('figures/model-eval-circles_2.svg')
+    plt.show()
+```
+
+```{python}
+from mlxtend.evaluate import plot_decision_regions
+
+clf = SVC(C=10.0, 
+          kernel='rbf', 
+          degree=1, 
+          gamma=0.001, 
+          coef0=0.0, 
+          shrinking=True, 
+          probability=False, 
+          tol=0.001, 
+          cache_size=200, 
+          class_weight=None, 
+          verbose=False, 
+          max_iter=-1, 
+          decision_function_shape=None, 
+          random_state=123)
+
+clf.fit(X_train, y_train)
+
+with plt.style.context(('seaborn-whitegrid')):
+    plot_decision_regions(X_train, 
+                          y_train, 
+                          clf=clf, 
+                          res=0.02, 
+                          legend=None)
+    plt.xlabel('X1')
+    plt.ylabel('X2')
+    plt.tight_layout()
+    plt.savefig('figures/model-eval-circles_3.svg')
+    plt.show()
+```
+
+```{python}
+clf = SVC(C=10.0, 
+          kernel='rbf', 
+          degree=1, 
+          gamma=0.1, 
+          coef0=0.0, 
+          shrinking=True, 
+          probability=False, 
+          tol=0.001, 
+          cache_size=200, 
+          class_weight=None, 
+          verbose=False, 
+          max_iter=-1, 
+          decision_function_shape=None, 
+          random_state=123)
+
+clf.fit(X_train, y_train)
+with plt.style.context(('seaborn-whitegrid')):
+    plot_decision_regions(X_train, 
+                          y_train, 
+                          clf=clf, 
+                          res=0.02, 
+                          legend=None)
+    plt.xlabel('X1')
+    plt.ylabel('X2')
+    plt.tight_layout()
+    plt.savefig('figures/model-eval-circles_4.svg')
+    plt.show()
+```
+
+```{python}
+clf = SVC(C=10.0, 
+          kernel='rbf', 
+          degree=1, 
+          gamma=10, 
+          coef0=0.0, 
+          shrinking=True, 
+          probability=False, 
+          tol=0.001, 
+          cache_size=200, 
+          class_weight=None, 
+          verbose=False, 
+          max_iter=-1, 
+          decision_function_shape=None, 
+          random_state=123)
+
+clf.fit(X_train, y_train)
+with plt.style.context(('seaborn-whitegrid')):
+    plot_decision_regions(X_train, 
+                          y_train, 
+                          clf=clf, 
+                          res=0.02, 
+                          legend=None)
+    plt.xlabel('X1')
+    plt.ylabel('X2')
+    plt.tight_layout()
+    plt.savefig('figures/model-eval-circles_5.svg')
+    plt.show()
+```
+
+## Repeated k-fold
+
+```{python}
+rng = np.random.RandomState(seed=12345)
+seeds = np.arange(10**5)
+rng.shuffle(seeds)
+seeds = seeds[:5]
+
+params = [0.01, 0.1, 1.0, 10.0, 100.0]
+cv_acc, cv_std, cv_stderr = [], [], []
+
+params_by_seed = []
+for seed in seeds:
+    cv = StratifiedKFold(y=y_train, n_folds=10, 
+                         shuffle=True, random_state=seed)
+    acc_by_param = []
+    for c in params:
+        
+        clf = SVC(C=1.0, 
+                  kernel='rbf', 
+                  degree=1, 
+                  gamma=c, 
+                  coef0=0.0, 
+                  shrinking=True, 
+                  probability=False, 
+                  tol=0.001, 
+                  cache_size=200, 
+                  class_weight=None, 
+                  verbose=False, 
+                  max_iter=-1, 
+                  decision_function_shape=None, 
+                  random_state=12345)
+
+
+        all_acc = []
+        for train_index, valid_index in cv:
+            pred = clf.fit(X_train[train_index], y_train[train_index])\
+                   .predict(X_train[valid_index])
+            acc = np.mean(y_train[valid_index] == pred)
+            all_acc.append(acc)
+
+        all_acc = np.array(all_acc)
+        acc_by_param.append(all_acc.mean())
+    print(acc_by_param)
+    params_by_seed.append(acc_by_param)
+```
+
+```{python}
+with plt.style.context(('fivethirtyeight')):
+    ax = plt.subplot(111)
+    ax.set_xscale('log')
+    
+    for cv_acc in params_by_seed:
+        ax.errorbar(params, cv_acc, linewidth=1.5, alpha=0.6, marker='o')
+
+    plt.ylim([0.6, 1.0])
+    plt.xlabel('$\gamma$', fontsize=25)
+    plt.ylabel('Accuracy')
+    plt.tight_layout()
+    plt.savefig('figures/model-eval-circles_7.svg')
+    plt.show()
+```
+
+```{python}
+y_train.shape
+```
+
+```{python}
+rng = np.random.RandomState(seed=12345)
+seeds = np.arange(10**5)
+rng.shuffle(seeds)
+seeds = seeds[:5]
+
+params = [0.01, 0.1, 1.0, 10.0, 100.0]
+cv_acc, cv_std, cv_stderr = [], [], []
+
+params_by_seed = []
+for seed in seeds:
+    cv = StratifiedKFold(y=y_train, n_folds=5, 
+                         shuffle=True, random_state=seed)
+    acc_by_param = []
+    for c in params:
+        
+        clf = SVC(C=1.0, 
+                  kernel='rbf', 
+                  degree=1, 
+                  gamma=c, 
+                  coef0=0.0, 
+                  shrinking=True, 
+                  probability=False, 
+                  tol=0.001, 
+                  cache_size=200, 
+                  class_weight=None, 
+                  verbose=False, 
+                  max_iter=-1, 
+                  decision_function_shape=None, 
+                  random_state=12345)
+
+
+        all_acc = []
+        for train_index, valid_index in cv:
+            pred = clf.fit(X_train[train_index], y_train[train_index])\
+                   .predict(X_train[valid_index])
+            acc = np.mean(y_train[valid_index] == pred)
+            all_acc.append(acc)
+
+        all_acc = np.array(all_acc)
+        acc_by_param.append(all_acc.mean())
+    print(acc_by_param)
+    params_by_seed.append(acc_by_param)
+    
+with plt.style.context(('fivethirtyeight')):
+    ax = plt.subplot(111)
+    ax.set_xscale('log')
+    
+    for cv_acc in params_by_seed:
+        ax.errorbar(params, cv_acc, linewidth=1.5, alpha=0.5, marker='o')
+
+    plt.ylim([0.6, 1.0])
+    plt.xlabel('$\gamma$', fontsize=25)
+    plt.ylabel('Accuracy')
+    plt.tight_layout()
+    plt.savefig('figures/model-eval-circles_7_2.svg')
+    plt.show()
+```
+
+```{python}
+rng = np.random.RandomState(seed=12345)
+seeds = np.arange(10**5)
+rng.shuffle(seeds)
+seeds = seeds[:5]
+
+params = [0.01, 0.1, 1.0, 10.0, 100.0]
+cv_acc, cv_std, cv_stderr = [], [], []
+
+params_by_seed = []
+for seed in seeds:
+    cv = StratifiedKFold(y=y_train, n_folds=30, 
+                         shuffle=True, random_state=seed)
+    acc_by_param = []
+    for c in params:
+        
+        clf = SVC(C=1.0, 
+                  kernel='rbf', 
+                  degree=1, 
+                  gamma=c, 
+                  coef0=0.0, 
+                  shrinking=True, 
+                  probability=False, 
+                  tol=0.001, 
+                  cache_size=200, 
+                  class_weight=None, 
+                  verbose=False, 
+                  max_iter=-1, 
+                  decision_function_shape=None, 
+                  random_state=12345)
+
+
+        all_acc = []
+        for train_index, valid_index in cv:
+            pred = clf.fit(X_train[train_index], y_train[train_index])\
+                   .predict(X_train[valid_index])
+            acc = np.mean(y_train[valid_index] == pred)
+            all_acc.append(acc)
+
+        all_acc = np.array(all_acc)
+        acc_by_param.append(all_acc.mean())
+    print(acc_by_param)
+    params_by_seed.append(acc_by_param)
+    
+with plt.style.context(('fivethirtyeight')):
+    ax = plt.subplot(111)
+    ax.set_xscale('log')
+    
+    for cv_acc in params_by_seed:
+        ax.errorbar(params, cv_acc, linewidth=1.5, alpha=0.5, marker='o')
+
+    plt.ylim([0.6, 1.0])
+    plt.xlabel('$\gamma$', fontsize=25)
+    plt.ylabel('Accuracy')
+    plt.tight_layout()
+    plt.savefig('figures/model-eval-circles_7_3.svg')
+    plt.show()
+```
+
+## Bootstrap
+
+```{python}
+from matplotlib import rc
+rc('text', usetex=True)
+```
+
+```{python}
+vs = []
+for n in range(5, 201, 5):
+    v = 1 - (1. - 1./n)**n
+    vs.append(v)
+
+with plt.style.context(('seaborn-whitegrid')):    
+    plt.plot([n for n in range(5, 201, 5)], vs, marker='o', 
+            markersize=6, color='steelblue', linewidth=3, 
+            alpha=0.5, markerfacecolor='white',
+            markeredgewidth=1)
+plt.xlabel('$n$', fontsize=18)
+plt.ylabel('$1 - \\bigg(1 - \\frac{1}{n}\\bigg)^n$', fontsize=18)
+plt.xlim([0, 210])
+plt.tight_layout()
+plt.savefig('./figures/bootstrap_prob.svg')
+plt.show()
+```
+
+```{python}
+1 - np.e**(-1)
+```
+
+```{python}
+
+```
